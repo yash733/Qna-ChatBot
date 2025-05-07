@@ -5,7 +5,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 class Config:
     def __init__(self):
         self.config = ConfigParser()
-        self.config.read(f'{os.getcwd()}/config.ini')
+        self.config.read(f'{os.getcwd()}/config/config.ini')
 
     def get_title(self):
         return self.config['DEFAULT'].get('TITLE')
