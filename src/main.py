@@ -43,6 +43,11 @@ from config.config import Config
 [Output + Message History Updated]
 """
 
+os.environ['HUGGINFFACE_API'] = os.getenv('HUGGINFFACE_API')
+os.environ['LANGSMITH_TRACING'] = os.getenv('LANGSMITH_TRACING')
+os.environ['LANGCHIAN_PROJECT'] = os.getenv('LANGCHIAN_PROJECT')
+os.environ['LANGSMITH_API_KEY'] = os.getenv('LANGSMITH_API_KEY')
+
 
 class model_utility:
     def __init__(self):
@@ -50,9 +55,9 @@ class model_utility:
 
     def prompt(self):
         message = ChatPromptTemplate.from_messages([
-            MessagesPlaceholder('chat_history'),
+            MessagesPlaceholder(variable_name='chat_history'),
             {'role':'system', 'content':'You are an helpful assistant answer user query, if you have no context related to the query say "sorry I cant answer that for you", use this context: {context}'},
-            {'role':'user', 'content': '{user_query}'}]
+            {'role':'user', 'content': '{input}'}]
         )
         return message
     
@@ -77,12 +82,19 @@ class model_utility:
             {'role':'system', 'content':'''Given a chat history and the latest user question which might reference context in the chat history, 
             formulate a standalone question which can be understood without the chat history. Do NOT answer the question, 
             just reformulate it if needed and otherwise return it as is.'''},
-            MessagesPlaceholder('chat_history'),
-            {'role':'user', 'content':'{user_query}'}
+            MessagesPlaceholder(variable_name='chat_history'),
+            {'role':'user', 'content':'{input}'}
             ])
         
-        history_aware = create_history_aware_retriever(llm = st.session_state.model, prompmt = contextualize_q_prompt, retriever = self.data_extractor_web())
-        qna_chain = create_stuff_documents_chain(llm= st.session_state.model, prompt= self.prompt())
+        history_aware = create_history_aware_retriever(
+            llm = st.session_state.model, 
+            prompt = contextualize_q_prompt, 
+            retriever = self.data_extractor_web()
+            )
+        qna_chain = create_stuff_documents_chain(
+            llm= st.session_state.model, 
+            prompt= self.prompt()
+            )
         rag_chain = create_retrieval_chain(history_aware, qna_chain)
         return rag_chain
     
@@ -90,12 +102,17 @@ class model_utility:
         if session_id not in self.store:
             self.store[session_id] = ChatMessageHistory()
         return self.store[session_id]
+    
+    # def get_chat_history(self, session_id: str) -> list:
+    #     """Get all messages from the chat history for a session"""
+    #     history = self.get_session_history(session_id)
+    #     return [(msg.type, msg.content) for msg in history.messages]
 
     def chat_history(self):
         conversational_rag_chain = RunnableWithMessageHistory(
             self.stuff_doc_chain(),
-            self.get_session_history(),
-            input_messages_key="user_query",
+            self.get_session_history,
+            input_messages_key="input",
             history_messages_key="chat_history",
             output_messages_key="answer",
             )
